@@ -1,12 +1,12 @@
 {
   "domain": "minleon_lighting",
   "name": "Minleon Lighting",
-  "codeowners": ["@corypickett"],
+  "codeowners": ["@burdurboy05"],
   "config_flow": true,
-  "documentation": "https://github.com/corypickett/minleon-lighting-ha",
+  "documentation": "https://github.com/burdurboy05/minleon-lighting-ha",
   "integration_type": "hub",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/corypickett/minleon-lighting-ha/issues",
+  "issue_tracker": "https://github.com/burdurboy05/minleon-lighting-ha/issues",
   "requirements": ["aiohttp"],
   "version": "1.0.0"
 }
