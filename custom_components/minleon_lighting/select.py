@@ -168,7 +168,7 @@ class MinleonColorPresetSelector(SelectEntity):
     @property
     def current_option(self) -> str:
         """Return the current preset."""
-        return "None"  # Always show None since presets just set colors
+        return self.api.last_color_preset
 
     async def async_select_option(self, option: str) -> None:
         """Handle color preset selection."""
@@ -218,6 +218,9 @@ class MinleonEffectSelector(SelectEntity):
     @property
     def current_option(self) -> str:
         """Return the current effect."""
+        # If lights are off, show the last effect instead of "Off"
+        if not self.api.is_on and self.api.last_effect != "Off":
+            return self.api.last_effect
         return self.api.current_effect
 
     async def async_select_option(self, option: str) -> None:

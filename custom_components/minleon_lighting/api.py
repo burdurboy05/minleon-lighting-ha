@@ -30,6 +30,10 @@ class MinleonLightingApiClient:
         self._colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255), (0, 0, 0)]  # Default colors
         self._background_color = (0, 0, 0)
 
+        # Last selected preset and effect (persisted when lights are off)
+        self._last_color_preset = "None"
+        self._last_effect = "Off"
+
     @property
     def session(self):
         """Get aiohttp session."""
@@ -82,9 +86,13 @@ class MinleonLightingApiClient:
 
     async def async_turn_on(self) -> bool:
         """Turn on the lights with current effect."""
+        # Restore the last effect if currently off
         if self._current_effect == "Off":
-            # Default to Fixed Colors when turning on
-            self._current_effect = "Fixed Colors"
+            if self._last_effect != "Off":
+                self._current_effect = self._last_effect
+            else:
+                # Default to Fixed Colors when turning on for the first time
+                self._current_effect = "Fixed Colors"
 
         result = await self._send_command({"fxn": 1, "fx": self._current_effect})
         if result:
@@ -112,6 +120,9 @@ class MinleonLightingApiClient:
         if result:
             self._current_effect = effect
             self._is_on = effect != "Off"
+            # Remember the last effect if it's not "Off"
+            if effect != "Off":
+                self._last_effect = effect
         return result
 
     async def async_set_brightness(self, brightness: int) -> bool:
@@ -202,6 +213,8 @@ class MinleonLightingApiClient:
                 await self.async_set_color(i, (0, 0, 0))
 
         LOGGER.info("Color preset %s applied successfully", preset_name)
+        # Remember the last preset
+        self._last_color_preset = preset_name
         return True
 
     # Properties for state tracking
@@ -234,6 +247,16 @@ class MinleonLightingApiClient:
     def available_effects(self) -> List[str]:
         """Return list of available effects."""
         return KNOWN_EFFECTS.copy()
+
+    @property
+    def last_color_preset(self) -> str:
+        """Return the last selected color preset."""
+        return self._last_color_preset
+
+    @property
+    def last_effect(self) -> str:
+        """Return the last selected effect."""
+        return self._last_effect
 
     @property
     def available_presets(self) -> List[str]:
