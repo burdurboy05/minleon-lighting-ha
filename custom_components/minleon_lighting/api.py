@@ -63,31 +63,36 @@ class MinleonLightingApiClient:
                 LOGGER.warning("Failed to initialize state file: %s", ex)
 
     def _load_persistent_state(self):
-        """Load last preset and effect from persistent storage."""
+        """Load last preset, effect, and on/off state from persistent storage."""
         try:
             if self._state_file and os.path.exists(self._state_file):
                 with open(self._state_file, 'r') as f:
                     state = json.load(f)
                     self._last_color_preset = state.get('last_color_preset', 'None')
                     self._last_effect = state.get('last_effect', 'Off')
-                    LOGGER.debug("Loaded persistent state: preset=%s, effect=%s",
-                               self._last_color_preset, self._last_effect)
+                    self._is_on = state.get('is_on', False)
+                    # Restore current effect if lights were on
+                    if self._is_on and self._last_effect != 'Off':
+                        self._current_effect = self._last_effect
+                    LOGGER.debug("Loaded persistent state: preset=%s, effect=%s, is_on=%s",
+                               self._last_color_preset, self._last_effect, self._is_on)
         except Exception as ex:
             LOGGER.warning("Failed to load persistent state: %s", ex)
 
     def _save_persistent_state(self):
-        """Save last preset and effect to persistent storage."""
+        """Save last preset, effect, and on/off state to persistent storage."""
         try:
             self._ensure_state_file()
             if self._state_file and self._hass_ready:
                 state = {
                     'last_color_preset': self._last_color_preset,
-                    'last_effect': self._last_effect
+                    'last_effect': self._last_effect,
+                    'is_on': self._is_on
                 }
                 with open(self._state_file, 'w') as f:
                     json.dump(state, f)
-                LOGGER.debug("Saved persistent state: preset=%s, effect=%s",
-                           self._last_color_preset, self._last_effect)
+                LOGGER.debug("Saved persistent state: preset=%s, effect=%s, is_on=%s",
+                           self._last_color_preset, self._last_effect, self._is_on)
         except Exception as ex:
             LOGGER.warning("Failed to save persistent state: %s", ex)
 
@@ -141,6 +146,7 @@ class MinleonLightingApiClient:
         result = await self._send_command({"fxn": 1, "fx": self._current_effect})
         if result:
             self._is_on = True
+            self._save_persistent_state()  # Save on/off state
             # Apply current brightness and speed
             await self._send_command({"fxn": 1, "int": self._brightness})
             await self._send_command({"fxn": 1, "spd": self._speed})
@@ -152,6 +158,7 @@ class MinleonLightingApiClient:
         if result:
             self._is_on = False
             self._current_effect = "Off"
+            self._save_persistent_state()  # Save on/off state
         return result
 
     async def async_set_effect(self, effect: str) -> bool:
