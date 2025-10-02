@@ -3,6 +3,7 @@
 import asyncio
 import aiohttp
 import json
+import os
 from typing import List, Tuple, Dict, Optional
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -34,6 +35,10 @@ class MinleonLightingApiClient:
         self._last_color_preset = "None"
         self._last_effect = "Off"
 
+        # Persistent state file path
+        self._state_file = f"{hass.config.config_dir}/minleon_lighting_state_{entry.entry_id}.json"
+        self._load_persistent_state()
+
     @property
     def session(self):
         """Get aiohttp session."""
@@ -46,6 +51,33 @@ class MinleonLightingApiClient:
         if self._session:
             await self._session.close()
             self._session = None
+
+    def _load_persistent_state(self):
+        """Load last preset and effect from persistent storage."""
+        try:
+            if os.path.exists(self._state_file):
+                with open(self._state_file, 'r') as f:
+                    state = json.load(f)
+                    self._last_color_preset = state.get('last_color_preset', 'None')
+                    self._last_effect = state.get('last_effect', 'Off')
+                    LOGGER.debug("Loaded persistent state: preset=%s, effect=%s",
+                               self._last_color_preset, self._last_effect)
+        except Exception as ex:
+            LOGGER.warning("Failed to load persistent state: %s", ex)
+
+    def _save_persistent_state(self):
+        """Save last preset and effect to persistent storage."""
+        try:
+            state = {
+                'last_color_preset': self._last_color_preset,
+                'last_effect': self._last_effect
+            }
+            with open(self._state_file, 'w') as f:
+                json.dump(state, f)
+            LOGGER.debug("Saved persistent state: preset=%s, effect=%s",
+                       self._last_color_preset, self._last_effect)
+        except Exception as ex:
+            LOGGER.warning("Failed to save persistent state: %s", ex)
 
     async def _send_command(self, payload: dict) -> bool:
         """Send command to Minleon controller."""
@@ -123,6 +155,7 @@ class MinleonLightingApiClient:
             # Remember the last effect if it's not "Off"
             if effect != "Off":
                 self._last_effect = effect
+                self._save_persistent_state()  # Save to file
         return result
 
     async def async_set_brightness(self, brightness: int) -> bool:
@@ -215,6 +248,7 @@ class MinleonLightingApiClient:
         LOGGER.info("Color preset %s applied successfully", preset_name)
         # Remember the last preset
         self._last_color_preset = preset_name
+        self._save_persistent_state()  # Save to file
         return True
 
     # Properties for state tracking
