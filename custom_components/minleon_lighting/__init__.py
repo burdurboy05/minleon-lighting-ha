@@ -26,6 +26,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await api.async_test_connection():
         return False
 
+    # Initialize state file and load persistent state
+    api._ensure_state_file()
+
     hass.data[DOMAIN][entry.entry_id] = api
 
     # Set up platforms
