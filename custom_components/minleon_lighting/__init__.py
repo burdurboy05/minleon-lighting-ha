@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .api import MinleonLightingApiClient
-from .const import DOMAIN
+from .const import DOMAIN, LOGGER
 
 PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.NUMBER, Platform.SELECT]
 
@@ -28,6 +28,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Initialize state file and load persistent state
     api._ensure_state_file()
+
+    # Restore physical light state if lights were on before reboot
+    if api.is_on and api.current_effect != "Off":
+        LOGGER.info("Restoring lights to ON state with effect: %s", api.current_effect)
+        await api.async_turn_on()
 
     hass.data[DOMAIN][entry.entry_id] = api
 
