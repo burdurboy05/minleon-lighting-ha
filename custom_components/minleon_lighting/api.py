@@ -35,9 +35,9 @@ class MinleonLightingApiClient:
         self._last_color_preset = "None"
         self._last_effect = "Off"
 
-        # Persistent state file path
-        self._state_file = f"{hass.config.config_dir}/minleon_lighting_state_{entry.entry_id}.json"
-        self._load_persistent_state()
+        # Persistent state file path (will be set later)
+        self._state_file = None
+        self._hass_ready = False
 
     @property
     def session(self):
@@ -52,10 +52,20 @@ class MinleonLightingApiClient:
             await self._session.close()
             self._session = None
 
+    def _ensure_state_file(self):
+        """Ensure state file path is initialized."""
+        if self._state_file is None and self._hass is not None:
+            try:
+                self._state_file = f"{self._hass.config.config_dir}/minleon_lighting_state_{self._config_entry.entry_id}.json"
+                self._load_persistent_state()
+                self._hass_ready = True
+            except Exception as ex:
+                LOGGER.warning("Failed to initialize state file: %s", ex)
+
     def _load_persistent_state(self):
         """Load last preset and effect from persistent storage."""
         try:
-            if os.path.exists(self._state_file):
+            if self._state_file and os.path.exists(self._state_file):
                 with open(self._state_file, 'r') as f:
                     state = json.load(f)
                     self._last_color_preset = state.get('last_color_preset', 'None')
@@ -68,14 +78,16 @@ class MinleonLightingApiClient:
     def _save_persistent_state(self):
         """Save last preset and effect to persistent storage."""
         try:
-            state = {
-                'last_color_preset': self._last_color_preset,
-                'last_effect': self._last_effect
-            }
-            with open(self._state_file, 'w') as f:
-                json.dump(state, f)
-            LOGGER.debug("Saved persistent state: preset=%s, effect=%s",
-                       self._last_color_preset, self._last_effect)
+            self._ensure_state_file()
+            if self._state_file and self._hass_ready:
+                state = {
+                    'last_color_preset': self._last_color_preset,
+                    'last_effect': self._last_effect
+                }
+                with open(self._state_file, 'w') as f:
+                    json.dump(state, f)
+                LOGGER.debug("Saved persistent state: preset=%s, effect=%s",
+                           self._last_color_preset, self._last_effect)
         except Exception as ex:
             LOGGER.warning("Failed to save persistent state: %s", ex)
 
