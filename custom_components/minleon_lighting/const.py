@@ -200,7 +200,37 @@ AUSTRALIAN_FOOTBALL_PRESETS = {
 
 # NBA Team presets
 NBA_PRESETS = {
-    "Cleveland Cavaliers": {"colors": ["#6F263D", "#FFB81C"]}
+    "Atlanta Hawks": {"colors": ["#E03A3E", "#C1D32F"]},
+    "Boston Celtics": {"colors": ["#007A33", "#BA9653"]},
+    "Brooklyn Nets": {"colors": ["#000000", "#FFFFFF"]},
+    "Charlotte Hornets": {"colors": ["#1D1160", "#00788C"]},
+    "Chicago Bulls": {"colors": ["#CE1141", "#000000"]},
+    "Cleveland Cavaliers": {"colors": ["#6F263D", "#FFB81C"]},
+    "Dallas Mavericks": {"colors": ["#00538C", "#002B5E"]},
+    "Denver Nuggets": {"colors": ["#0E2240", "#FEC524"]},
+    "Detroit Pistons": {"colors": ["#C8102E", "#1D42BA"]},
+    "Golden State Warriors": {"colors": ["#1D428A", "#FFC72C"]},
+    "Houston Rockets": {"colors": ["#CE1141", "#000000"]},
+    "Indiana Pacers": {"colors": ["#002D62", "#FDBB30"]},
+    "LA Clippers": {"colors": ["#C8102E", "#1D428A"]},
+    "Los Angeles Lakers": {"colors": ["#552583", "#FDB927"]},
+    "Memphis Grizzlies": {"colors": ["#5D76A9", "#12173F"]},
+    "Miami Heat": {"colors": ["#98002E", "#F9A01B"]},
+    "Milwaukee Bucks": {"colors": ["#00471B", "#EEE1C6"]},
+    "Minnesota Timberwolves": {"colors": ["#0C2340", "#236192"]},
+    "New Orleans Pelicans": {"colors": ["#0C2340", "#C8102E"]},
+    "New York Knicks": {"colors": ["#006BB6", "#F58426"]},
+    "Ohio State Buckeyes": {"colors": ["#BB0000", "#666666"]},
+    "Oklahoma City Thunder": {"colors": ["#007AC1", "#EF3B24"]},
+    "Orlando Magic": {"colors": ["#0077C0", "#C4CED4"]},
+    "Philadelphia 76ers": {"colors": ["#006BB6", "#ED174C"]},
+    "Phoenix Suns": {"colors": ["#1D1160", "#E56020"]},
+    "Portland Trail Blazers": {"colors": ["#E03A3E", "#000000"]},
+    "Sacramento Kings": {"colors": ["#5A2D81", "#63727A"]},
+    "San Antonio Spurs": {"colors": ["#C4CED4", "#000000"]},
+    "Toronto Raptors": {"colors": ["#CE1141", "#000000"]},
+    "Utah Jazz": {"colors": ["#002B5C", "#00471B"]},
+    "Washington Wizards": {"colors": ["#002B5C", "#E31837"]}
 }
 
 STARTUP_MESSAGE = f"""
