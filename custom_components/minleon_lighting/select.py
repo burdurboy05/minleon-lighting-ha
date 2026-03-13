@@ -25,6 +25,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     # Create the effect selector
     selects.append(MinleonEffectSelector(api, entry))
 
+    # Create the overlay effect selector
+    selects.append(MinleonOverlayEffectSelector(api, entry))
+
     async_add_entities(selects)
 
 
@@ -227,4 +230,51 @@ class MinleonEffectSelector(SelectEntity):
         """Handle effect selection."""
         LOGGER.debug("Setting effect to %s", option)
         await self.api.async_set_effect(option)
+        self.async_write_ha_state()
+
+
+class MinleonOverlayEffectSelector(SelectEntity):
+    """Overlay effect selector for lighting overlay effects."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        api: MinleonLightingApiClient,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize."""
+        self.api = api
+        self._config_entry = entry
+        self._attr_unique_id = f"minleon_overlay_effect_selector_{entry.entry_id}"
+        self._attr_name = "Overlay Effect"
+        self._attr_icon = "mdi:layers-triple"
+        self._attr_options = ["Off", "Lightning", "Fader"]
+        self._attr_current_option = "Off"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Minleon Pixel Dancer Controller",
+            "manufacturer": "Minleon",
+            "model": "Pixel Dancer",
+            "sw_version": "1.0",
+        }
+
+    @property
+    def unique_id(self) -> str:
+        return self._attr_unique_id
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return True
+
+    @property
+    def current_option(self) -> str:
+        """Return the current overlay effect."""
+        return self.api.overlay_effect
+
+    async def async_select_option(self, option: str) -> None:
+        """Handle overlay effect selection."""
+        LOGGER.debug("Setting overlay effect to %s", option)
+        await self.api.async_set_overlay_effect(option)
         self.async_write_ha_state()

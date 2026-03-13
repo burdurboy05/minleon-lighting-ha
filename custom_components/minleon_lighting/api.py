@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.config_entries import ConfigEntry
 
-from .const import LOGGER, KNOWN_EFFECTS, HOLIDAY_PRESETS, NFL_PRESETS, NATION_PRESETS, SOCCER_PRESETS, AUSTRALIAN_FOOTBALL_PRESETS, NBA_PRESETS
+from .const import LOGGER, KNOWN_EFFECTS, HOLIDAY_PRESETS, NFL_PRESETS, NATION_PRESETS, SOCCER_PRESETS, AUSTRALIAN_FOOTBALL_PRESETS, NBA_PRESETS, MLB_PRESETS, NHL_PRESETS
 
 
 class MinleonLightingApiClient:
@@ -30,6 +30,7 @@ class MinleonLightingApiClient:
         self._speed = 50
         self._colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255), (0, 0, 0)]  # Default colors
         self._background_color = (0, 0, 0)
+        self._overlay_effect = "Off"
 
         # Last selected preset and effect (persisted when lights are off)
         self._last_color_preset = "None"
@@ -241,6 +242,10 @@ class MinleonLightingApiClient:
             preset = AUSTRALIAN_FOOTBALL_PRESETS[preset_name]
         elif preset_name in NBA_PRESETS:
             preset = NBA_PRESETS[preset_name]
+        elif preset_name in MLB_PRESETS:
+            preset = MLB_PRESETS[preset_name]
+        elif preset_name in NHL_PRESETS:
+            preset = NHL_PRESETS[preset_name]
 
         if preset is None:
             LOGGER.error("Unknown preset: %s", preset_name)
@@ -269,6 +274,20 @@ class MinleonLightingApiClient:
         self._last_color_preset = preset_name
         self._save_persistent_state()  # Save to file
         return True
+
+
+    async def async_set_overlay_effect(self, overlay: str) -> bool:
+        """Set the overlay effect (Lightning, Fader, or Off)."""
+        LOGGER.debug("Setting overlay effect to %s", overlay)
+        result = await self._send_command({"fxn": 1, "overlay": overlay})
+        if result:
+            self._overlay_effect = overlay
+        return result
+
+    @property
+    def overlay_effect(self) -> str:
+        """Return the current overlay effect."""
+        return getattr(self, '_overlay_effect', 'Off')
 
     # Properties for state tracking
     @property
@@ -321,6 +340,8 @@ class MinleonLightingApiClient:
         all_presets.extend(list(SOCCER_PRESETS.keys()))
         all_presets.extend(list(AUSTRALIAN_FOOTBALL_PRESETS.keys()))
         all_presets.extend(list(NBA_PRESETS.keys()))
+        all_presets.extend(list(MLB_PRESETS.keys()))
+        all_presets.extend(list(NHL_PRESETS.keys()))
         return all_presets
 
 

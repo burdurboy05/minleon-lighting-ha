@@ -233,6 +233,77 @@ NBA_PRESETS = {
     "Washington Wizards": {"colors": ["#002B5C", "#E31837"]}
 }
 
+
+# MLB Team presets
+MLB_PRESETS = {
+    "Arizona Diamondbacks": {"colors": ["#A71930", "#000000", "#E3D4AD"]},
+    "Atlanta Braves": {"colors": ["#CE1141", "#13274F", "#EAAA00"]},
+    "Baltimore Orioles": {"colors": ["#DF4601", "#000000", "#FFFFFF"]},
+    "Boston Red Sox": {"colors": ["#BD3039", "#0C2340", "#FFFFFF"]},
+    "Chicago Cubs": {"colors": ["#0E3386", "#CC3433", "#FFFFFF"]},
+    "Chicago White Sox": {"colors": ["#27251F", "#C4CED4", "#FFFFFF"]},
+    "Cincinnati Reds": {"colors": ["#C6011F", "#000000", "#FFFFFF"]},
+    "Cleveland Guardians": {"colors": ["#E31937", "#002B5C", "#FFFFFF"]},
+    "Colorado Rockies": {"colors": ["#33006F", "#C4CED4", "#000000"]},
+    "Detroit Tigers": {"colors": ["#0C2340", "#FA4616", "#FFFFFF"]},
+    "Houston Astros": {"colors": ["#002D62", "#EB6E1F", "#F4911E"]},
+    "Kansas City Royals": {"colors": ["#004687", "#BD9B60", "#FFFFFF"]},
+    "Los Angeles Angels": {"colors": ["#BA0021", "#003263", "#C4CED4"]},
+    "Los Angeles Dodgers": {"colors": ["#005A9C", "#EF3E42", "#FFFFFF"]},
+    "Miami Marlins": {"colors": ["#00A3E0", "#EF3340", "#41748D"]},
+    "Milwaukee Brewers": {"colors": ["#FFC52F", "#12284B", "#FFFFFF"]},
+    "Minnesota Twins": {"colors": ["#002B5C", "#D31145", "#FFFFFF"]},
+    "New York Mets": {"colors": ["#002D72", "#FF5910", "#FFFFFF"]},
+    "New York Yankees": {"colors": ["#0C2340", "#C4CED4", "#FFFFFF"]},
+    "Oakland Athletics": {"colors": ["#003831", "#EFB21E", "#FFFFFF"]},
+    "Philadelphia Phillies": {"colors": ["#E81828", "#002D72", "#FFFFFF"]},
+    "Pittsburgh Pirates": {"colors": ["#FDB827", "#27251F", "#FFFFFF"]},
+    "San Diego Padres": {"colors": ["#2F241D", "#FFC425", "#A0AAB2"]},
+    "San Francisco Giants": {"colors": ["#FD5A1E", "#27251F", "#EFD19F"]},
+    "Seattle Mariners": {"colors": ["#0C2C56", "#005C5C", "#C4CED4"]},
+    "St Louis Cardinals": {"colors": ["#C41E3A", "#0C2340", "#FEDB00"]},
+    "Tampa Bay Rays": {"colors": ["#092C5C", "#8FBCE6", "#F5D130"]},
+    "Texas Rangers": {"colors": ["#003278", "#C0111F", "#FFFFFF"]},
+    "Toronto Blue Jays": {"colors": ["#134A8E", "#1D2D5C", "#E8291C"]},
+    "Washington Nationals": {"colors": ["#AB0003", "#14225A", "#FFFFFF"]}
+}
+
+# NHL Team presets
+NHL_PRESETS = {
+    "Anaheim Ducks": {"colors": ["#F47A38", "#B9975B", "#C1C6C8"]},
+    "Arizona Coyotes": {"colors": ["#8C2633", "#E2D6B5", "#000000"]},
+    "Boston Bruins": {"colors": ["#FFB81C", "#000000", "#FFFFFF"]},
+    "Buffalo Sabres": {"colors": ["#002654", "#FCB514", "#C8102E"]},
+    "Calgary Flames": {"colors": ["#C8102E", "#F1BE48", "#000000"]},
+    "Carolina Hurricanes": {"colors": ["#CC0000", "#000000", "#A2AAAD"]},
+    "Chicago Blackhawks": {"colors": ["#CF0A2C", "#FF671B", "#00833E"]},
+    "Colorado Avalanche": {"colors": ["#6F263D", "#236192", "#A2AAAD"]},
+    "Columbus Blue Jackets": {"colors": ["#002654", "#CE1126", "#A4A9AD"]},
+    "Dallas Stars": {"colors": ["#006847", "#8F8F8C", "#000000"]},
+    "Detroit Red Wings": {"colors": ["#CE1126", "#FFFFFF"]},
+    "Edmonton Oilers": {"colors": ["#041E42", "#FF4C00", "#FFFFFF"]},
+    "Florida Panthers": {"colors": ["#041E42", "#C8102E", "#B9975B"]},
+    "Los Angeles Kings": {"colors": ["#111111", "#A2AAAD", "#FFFFFF"]},
+    "Minnesota Wild": {"colors": ["#A6192E", "#154734", "#EAAA00"]},
+    "Montreal Canadiens": {"colors": ["#AF1E2D", "#192168", "#FFFFFF"]},
+    "Nashville Predators": {"colors": ["#FFB81C", "#041E42", "#FFFFFF"]},
+    "New Jersey Devils": {"colors": ["#CE1126", "#000000", "#FFFFFF"]},
+    "New York Islanders": {"colors": ["#00539B", "#F47D30", "#FFFFFF"]},
+    "New York Rangers": {"colors": ["#0038A8", "#CE1126", "#FFFFFF"]},
+    "Ottawa Senators": {"colors": ["#C52032", "#C2912C", "#000000"]},
+    "Philadelphia Flyers": {"colors": ["#F74902", "#000000", "#FFFFFF"]},
+    "Pittsburgh Penguins": {"colors": ["#000000", "#CFC493", "#FCB514"]},
+    "San Jose Sharks": {"colors": ["#006D75", "#EA7200", "#000000"]},
+    "Seattle Kraken": {"colors": ["#001628", "#99D9D9", "#E9072B"]},
+    "St Louis Blues": {"colors": ["#002F87", "#FCB514", "#041E42"]},
+    "Tampa Bay Lightning": {"colors": ["#002868", "#FFFFFF"]},
+    "Toronto Maple Leafs": {"colors": ["#00205B", "#FFFFFF"]},
+    "Vancouver Canucks": {"colors": ["#00205B", "#00843D", "#041C2C"]},
+    "Vegas Golden Knights": {"colors": ["#B4975A", "#333F42", "#C8102E"]},
+    "Washington Capitals": {"colors": ["#041E42", "#C8102E", "#FFFFFF"]},
+    "Winnipeg Jets": {"colors": ["#041E42", "#004C97", "#AC162C"]}
+}
+
 STARTUP_MESSAGE = f"""
 -------------------------------------------------------------------
 {NAME}
