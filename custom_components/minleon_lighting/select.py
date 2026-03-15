@@ -14,11 +14,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     selects = []
     
-    # Create color preset selectors for each slot
-    for slot in range(1, 7):  # Slots 1-6
-        slot_name = f"Bulb {slot}" if slot <= 5 else "Background"
-        selects.append(MinleonColorPreset(api, entry, slot, slot_name))
-    
     # Create the main color preset selector
     selects.append(MinleonColorPresetSelector(api, entry))
 

@@ -72,7 +72,7 @@ KNOWN_EFFECTS = [
 HOLIDAY_PRESETS = {
     "New Year": {"colors": ["#FFD700", "#FEFFFF"]},
     "Valentines Day": {"colors": ["#E63B7A", "#F4A4C0"]},
-    "St Patricks Day": {"colors": ["#008000", "#FEFFFF"]},
+    "St Patricks Day": {"colors": ["#009A49", "#FFFFFF", "#FF7900"]},
     "Mardi Gras": {"colors": ["#008000", "#800080", "#FFFF00"]},
     "Easter": {"colors": ["#FFC0CB", "#800080", "#FFFF00"]},
     "Earth Day": {"colors": ["#00FF00", "#0000FF"]},

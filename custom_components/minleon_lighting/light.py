@@ -149,12 +149,7 @@ class MinleonLightingLight(LightEntity):
 
 
 class MinleonColorSlot(LightEntity):
-    """Individual color slot control."""
-
-    _attr_supported_color_modes = {ColorMode.RGB}
-    _attr_color_mode = ColorMode.RGB
-    _attr_supported_features = 0  # No brightness, no on/off
-    _attr_has_entity_name = True
+    """Individual color slot control with RGB color picker."""
 
     def __init__(
         self,
@@ -168,9 +163,12 @@ class MinleonColorSlot(LightEntity):
         self._config_entry = entry
         self._slot = slot
         self._slot_name = slot_name
-        self._attr_unique_id = f"minleon_color_slot_{slot}_{entry.entry_id}"
+        self._attr_unique_id = f"minleon_bulb_{slot}_{entry.entry_id}"
         self._attr_name = f"Color {slot_name}"
+        self._attr_has_entity_name = True
         self._attr_icon = "mdi:palette" if slot <= 5 else "mdi:wallpaper"
+        self._attr_supported_color_modes = {ColorMode.RGB}
+        self._attr_color_mode = ColorMode.RGB
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "Minleon Pixel Dancer Controller",
@@ -181,6 +179,7 @@ class MinleonColorSlot(LightEntity):
 
     @property
     def unique_id(self) -> str:
+        """Return unique ID."""
         return self._attr_unique_id
 
     @property
@@ -190,13 +189,8 @@ class MinleonColorSlot(LightEntity):
 
     @property
     def is_on(self) -> bool:
-        """Always return True - no on/off control."""
+        """Always return True - color pickers are always 'on'."""
         return True
-
-    @property
-    def brightness(self) -> None:
-        """Return None to disable brightness control."""
-        return None
 
     @property
     def rgb_color(self) -> tuple[int, int, int] | None:
@@ -218,6 +212,5 @@ class MinleonColorSlot(LightEntity):
             self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
-        """Ignore turn off commands."""
-        # Do nothing - no on/off control for individual slots
+        """Turn off not supported for color pickers."""
         pass
