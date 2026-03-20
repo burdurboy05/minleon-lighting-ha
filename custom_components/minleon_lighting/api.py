@@ -125,11 +125,15 @@ class MinleonLightingApiClient:
             return False
 
     async def async_test_connection(self) -> bool:
-        """Test connection to the controller."""
+        """Test connection to the controller without changing light state."""
         try:
-            # Try to turn off the lights as a connection test
-            result = await self._send_command({"fxn": 1, "fx": "Off"})
-            return result
+            # Use a GET request to check connectivity without altering light state
+            async with self.session.get(
+                f"http://{self.address}/",
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                LOGGER.debug("Connection test status: %s", response.status)
+                return response.status < 500
         except Exception as ex:
             LOGGER.error("Connection test failed: %s", ex)
             return False

@@ -171,8 +171,12 @@ class MinleonColorPresetSelector(SelectEntity):
     async def async_select_option(self, option: str) -> None:
         """Handle color preset selection."""
         if option == "None":
-            return  # Do nothing
-            
+            # Clear the active preset tracking without changing colors on the controller
+            self.api._last_color_preset = "None"
+            self.api._save_persistent_state()
+            self.async_write_ha_state()
+            return
+
         LOGGER.debug("Applying color preset %s", option)
         await self.api.async_apply_holiday_preset(option)
         self.async_write_ha_state()
