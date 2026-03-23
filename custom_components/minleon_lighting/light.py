@@ -189,8 +189,9 @@ class MinleonColorSlot(LightEntity):
 
     @property
     def is_on(self) -> bool:
-        """Always return True - color pickers are always 'on'."""
-        return True
+        """Return True if the slot color is not black."""
+        color = self.rgb_color
+        return color is not None and sum(color) > 0
 
     @property
     def rgb_color(self) -> tuple[int, int, int] | None:
@@ -203,14 +204,24 @@ class MinleonColorSlot(LightEntity):
         return (0, 0, 0)
 
     async def async_turn_on(self, **kwargs) -> None:
-        """Set the color for this slot."""
+        """Set the color for this slot, or restore to white if currently blacked out."""
         rgb_color = kwargs.get(ATTR_RGB_COLOR)
 
         if rgb_color is not None:
             LOGGER.debug("Setting color slot %s to %s", self._slot, rgb_color)
             await self.api.async_set_color(self._slot, rgb_color)
             self.async_write_ha_state()
+        elif not self.is_on:
+            # Slot is blacked out — restore to white
+            await self.api.async_set_color(self._slot, (255, 255, 255))
+            self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
-        """Turn off not supported for color pickers."""
-        pass
+        """Black out this slot by setting its color to black [0,0,0].
+
+        The Minleon device does not support truly turning off individual
+        color slots, so we send black instead to make the slot invisible.
+        """
+        LOGGER.debug("Blacking out color slot %s", self._slot)
+        await self.api.async_set_color(self._slot, (0, 0, 0))
+        self.async_write_ha_state()
