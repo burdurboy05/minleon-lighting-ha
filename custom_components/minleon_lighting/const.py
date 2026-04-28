@@ -70,6 +70,11 @@ KNOWN_EFFECTS = [
 
 # Holiday presets from Pixel Dancer app
 HOLIDAY_PRESETS = {
+    "Security": {
+        "colors": ["#FFE1A8", "#FFE1A8", "#FFE1A8", "#FFE1A8", "#FFE1A8"],
+        "background": "#28231A",
+        "effect": "Markers",
+    },
     "New Year": {"colors": ["#FFD700", "#FEFFFF"]},
     "Valentines Day": {"colors": ["#E63B7A", "#F4A4C0"]},
     "St Patricks Day": {"colors": ["#009A49", "#FFFFFF", "#FF7900"]},

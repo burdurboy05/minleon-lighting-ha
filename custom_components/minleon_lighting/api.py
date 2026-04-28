@@ -273,6 +273,18 @@ class MinleonLightingApiClient:
                 LOGGER.info("Clearing unused color slot %d", i)
                 await self.async_set_color(i, (0, 0, 0))
 
+        # Set background color (slot 6) if specified in the preset
+        if "background" in preset:
+            hex_bg = preset["background"].lstrip("#")
+            bg_rgb = tuple(int(hex_bg[j:j+2], 16) for j in (0, 2, 4))
+            LOGGER.info("Setting background color to %s (RGB: %s)", hex_bg, bg_rgb)
+            await self.async_set_color(6, bg_rgb)
+
+        # Apply effect if specified in the preset
+        if "effect" in preset:
+            LOGGER.info("Applying preset effect: %s", preset["effect"])
+            await self.async_set_effect(preset["effect"])
+
         LOGGER.info("Color preset %s applied successfully", preset_name)
         # Remember the last preset
         self._last_color_preset = preset_name
