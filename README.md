@@ -1,9 +1,22 @@
 # Minleon Lighting Integration for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
-[![GitHub release](https://img.shields.io/github/release/yourusername/minleon-lighting-ha.svg)](https://github.com/yourusername/minleon-lighting-ha/releases)
+[![GitHub release](https://img.shields.io/github/release/burdurboy05/minleon-lighting-ha.svg)](https://github.com/burdurboy05/minleon-lighting-ha/releases)
 
 A complete Home Assistant integration for Minleon Pixel Dancer Christmas lights, providing full control over effects, colors, and lighting parameters.
+
+## ✨ What's New in 1.5.0
+
+This release makes the integration aware of the controller's **real state** instead of only tracking what Home Assistant last sent:
+
+- **Live state sync** — entities now reflect the controller's actual effect, brightness, speed, and colors, **including changes made in the Pixel Dancer app**. The integration polls the controller every 30 seconds.
+- **Clean restarts** — Home Assistant no longer pushes state to the lights on startup. It reads what the controller is actually doing, so a restart won't override your scene.
+- **Real availability** — entities show *unavailable* when the controller can't be reached, instead of always appearing online.
+- **More reliable & responsive** — non-blocking async storage, Home Assistant's shared HTTP session, and a request lock that prevents overlapping commands to the controller.
+- **No duplicate setups** — adding the same controller twice is now prevented (identified by its unique ID), and the setup connection test is stricter.
+- **Fixes** — brightness no longer drifts on round-trips; removed unused/dead code.
+
+> Upgrade is seamless: your saved presets/effects migrate automatically on first start.
 
 ## Features
 

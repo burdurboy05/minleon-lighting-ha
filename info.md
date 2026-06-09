@@ -2,6 +2,14 @@
 
 Control your Minleon Pixel Dancer Christmas lights directly from Home Assistant!
 
+## ✨ New in 1.5.0
+
+- **Live state sync** — entities reflect the controller's real effect, brightness, and colors, including changes made in the Pixel Dancer app (polls every 30s).
+- **Clean restarts** — Home Assistant no longer overrides your lights on startup.
+- **Real availability** — entities go *unavailable* when the controller is unreachable.
+- **More reliable** — async (non-blocking) storage, shared HTTP session, and serialized requests to the controller.
+- **No duplicate setups** + stricter connection test; brightness rounding fix.
+
 ## Key Features
 
 - **Complete Effect Control**: 39+ lighting effects including Chase, Sparkle, Color Wave, Lightning, Snow, and more
