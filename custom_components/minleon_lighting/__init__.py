@@ -6,7 +6,8 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .api import MinleonLightingApiClient
-from .const import DOMAIN, LOGGER
+from .const import DOMAIN
+from .coordinator import MinleonDataUpdateCoordinator
 
 PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.NUMBER, Platform.SELECT]
 
@@ -26,13 +27,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await api.async_test_connection():
         return False
 
-    # Initialize state file and load persistent state
-    api._ensure_state_file()
+    # Load persisted last preset/effect (async, non-blocking)
+    await api.async_load_persistent_state()
 
-    # Restore physical light state if lights were on before reboot
-    if api.is_on and api.current_effect != "Off":
-        LOGGER.info("Restoring lights to ON state with effect: %s", api.current_effect)
-        await api.async_turn_on()
+    # NOTE: We intentionally do NOT push any state to the controller on
+    # startup. The device keeps running its current effect across a Home
+    # Assistant restart, and the coordinator below reads that real state.
+    # Re-asserting HA's last-known state here used to overwrite the device
+    # (reverting the exterior lights to defaults/red on every restart).
+
+    # Set up the polling coordinator and read the controller's live state
+    # once before entities are created so they start in sync with the device.
+    coordinator = MinleonDataUpdateCoordinator(hass, api)
+    api.coordinator = coordinator
+    await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = api
 

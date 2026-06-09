@@ -3,6 +3,7 @@
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import LOGGER, DOMAIN
 from .api import MinleonLightingApiClient
@@ -20,7 +21,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     async_add_entities(numbers)
 
 
-class MinleonSpeedControl(NumberEntity):
+class MinleonSpeedControl(CoordinatorEntity, NumberEntity):
     """Speed control for Minleon lighting."""
 
     _attr_mode = NumberMode.SLIDER
@@ -36,6 +37,7 @@ class MinleonSpeedControl(NumberEntity):
         entry: ConfigEntry,
     ) -> None:
         """Initialize."""
+        super().__init__(api.coordinator)
         self.api = api
         self._config_entry = entry
         self._attr_unique_id = f"minleon_speed_{entry.entry_id}"
@@ -53,11 +55,6 @@ class MinleonSpeedControl(NumberEntity):
         return self._attr_unique_id
 
     @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return True
-
-    @property
     def native_value(self) -> float:
         """Return the current speed value."""
         return self.api.speed
@@ -71,7 +68,7 @@ class MinleonSpeedControl(NumberEntity):
         self.async_write_ha_state()
 
 
-class MinleonSpacingControl(NumberEntity):
+class MinleonSpacingControl(CoordinatorEntity, NumberEntity):
     """Spacing control for Minleon lighting effects."""
 
     _attr_mode = NumberMode.SLIDER
@@ -87,11 +84,11 @@ class MinleonSpacingControl(NumberEntity):
         entry: ConfigEntry,
     ) -> None:
         """Initialize."""
+        super().__init__(api.coordinator)
         self.api = api
         self._config_entry = entry
         self._attr_unique_id = f"minleon_spacing_{entry.entry_id}"
         self._attr_name = "Spacing"
-        self._current_spacing = 0
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "Minleon Pixel Dancer Controller",
@@ -105,14 +102,9 @@ class MinleonSpacingControl(NumberEntity):
         return self._attr_unique_id
 
     @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return True
-
-    @property
     def native_value(self) -> float:
         """Return the current spacing value."""
-        return self._current_spacing
+        return self.api.spacing
 
     async def async_set_native_value(self, value: float) -> None:
         """Set new spacing value."""
@@ -121,11 +113,11 @@ class MinleonSpacingControl(NumberEntity):
 
         result = await self.api._send_command({"fxn": 1, "spacing": str(spacing)})
         if result:
-            self._current_spacing = spacing
+            self.api._spacing = spacing
         self.async_write_ha_state()
 
 
-class MinleonAmountControl(NumberEntity):
+class MinleonAmountControl(CoordinatorEntity, NumberEntity):
     """Amount control for Minleon lighting effects."""
 
     _attr_mode = NumberMode.SLIDER
@@ -141,11 +133,11 @@ class MinleonAmountControl(NumberEntity):
         entry: ConfigEntry,
     ) -> None:
         """Initialize."""
+        super().__init__(api.coordinator)
         self.api = api
         self._config_entry = entry
         self._attr_unique_id = f"minleon_amount_{entry.entry_id}"
         self._attr_name = "Amount"
-        self._current_amount = 50
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "Minleon Pixel Dancer Controller",
@@ -159,14 +151,9 @@ class MinleonAmountControl(NumberEntity):
         return self._attr_unique_id
 
     @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return True
-
-    @property
     def native_value(self) -> float:
         """Return the current amount value."""
-        return self._current_amount
+        return self.api.amount
 
     async def async_set_native_value(self, value: float) -> None:
         """Set new amount value."""
@@ -175,11 +162,11 @@ class MinleonAmountControl(NumberEntity):
 
         result = await self.api._send_command({"fxn": 1, "amount": str(amount)})
         if result:
-            self._current_amount = amount
+            self.api._amount = amount
         self.async_write_ha_state()
 
 
-class MinleonTrailsControl(NumberEntity):
+class MinleonTrailsControl(CoordinatorEntity, NumberEntity):
     """Trails control for Minleon lighting effects."""
 
     _attr_mode = NumberMode.SLIDER
@@ -195,11 +182,11 @@ class MinleonTrailsControl(NumberEntity):
         entry: ConfigEntry,
     ) -> None:
         """Initialize."""
+        super().__init__(api.coordinator)
         self.api = api
         self._config_entry = entry
         self._attr_unique_id = f"minleon_trails_{entry.entry_id}"
         self._attr_name = "Trails"
-        self._current_trails = 50
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "Minleon Pixel Dancer Controller",
@@ -213,14 +200,9 @@ class MinleonTrailsControl(NumberEntity):
         return self._attr_unique_id
 
     @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return True
-
-    @property
     def native_value(self) -> float:
         """Return the current trails value."""
-        return self._current_trails
+        return self.api.trails
 
     async def async_set_native_value(self, value: float) -> None:
         """Set new trails value."""
@@ -229,5 +211,5 @@ class MinleonTrailsControl(NumberEntity):
 
         result = await self.api._send_command({"fxn": 1, "trails": str(trails)})
         if result:
-            self._current_trails = trails
+            self.api._trails = trails
         self.async_write_ha_state()

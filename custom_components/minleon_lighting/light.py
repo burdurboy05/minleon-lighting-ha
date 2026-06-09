@@ -3,6 +3,7 @@
 import re
 from typing import Any
 from homeassistant.config_entries import ConfigEntry
+import colorsys
 from homeassistant.components.light import (
     LightEntity,
     LightEntityFeature,
@@ -10,7 +11,9 @@ from homeassistant.components.light import (
     ATTR_EFFECT,
     ATTR_BRIGHTNESS,
     ATTR_RGB_COLOR,
+    ATTR_HS_COLOR,
 )
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     LOGGER,
     DOMAIN,
@@ -38,12 +41,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities(lights)
 
 
-class MinleonLightingLight(LightEntity):
+class MinleonLightingLight(CoordinatorEntity, LightEntity):
     """minleon-lighting light class."""
 
     _attr_supported_features = LightEntityFeature.EFFECT
-    _attr_supported_color_modes = {ColorMode.RGB}
-    _attr_color_mode = ColorMode.RGB
+    _attr_supported_color_modes = {ColorMode.HS}
+    _attr_color_mode = ColorMode.HS
     _attr_icon = "mdi:led-strip-variant"
     _attr_has_entity_name = True
 
@@ -53,6 +56,7 @@ class MinleonLightingLight(LightEntity):
         entry: ConfigEntry,
     ) -> None:
         """Initialize."""
+        super().__init__(api.coordinator)
         self.api = api
         self._config_entry = entry
         self._attr_unique_id = f"minleon_{entry.entry_id}"
@@ -68,11 +72,6 @@ class MinleonLightingLight(LightEntity):
     @property
     def unique_id(self) -> str:
         return self._attr_unique_id
-
-    @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return True  # We'll assume it's available if configured
 
     @property
     def effect_list(self) -> list[str]:
@@ -91,15 +90,20 @@ class MinleonLightingLight(LightEntity):
         return self.api.current_effect
 
     @property
-    def rgb_color(self) -> tuple[int, int, int] | None:
-        """Return the color value."""
-        return self.api.rgb_color
+    def hs_color(self) -> tuple[float, float] | None:
+        """Return hue/saturation from the current RGB color."""
+        rgb = self.api.rgb_color
+        if rgb is None:
+            return None
+        r, g, b = (v / 255.0 for v in rgb)
+        h, s, _ = colorsys.rgb_to_hsv(r, g, b)
+        return (h * 360, s * 100)
 
     @property
     def brightness(self) -> int | None:
         """Return the brightness of this light between 0..255."""
-        # Convert from 0-100 to 0-255
-        return int(self.api.brightness / 100 * 255)
+        # Convert from 0-100 to 0-255 (round to avoid drift on round-trips)
+        return round(self.api.brightness * 255 / 100)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on the light."""
@@ -114,22 +118,25 @@ class MinleonLightingLight(LightEntity):
             brightness,
         )
 
+        hs_color = kwargs.get(ATTR_HS_COLOR)
+
         if effect:
             # Set the effect directly
             await self.api.async_set_effect(effect)
-            # Ensure speed and brightness are set for effect visibility
-            await self.api.async_set_speed(50)  # Default speed
-            await self.api.async_set_brightness(self.api.brightness)  # Keep current brightness  # Keep current brightness
+            await self.api.async_set_brightness(self.api.brightness)
         else:
-            # Just turn on with current settings
             await self.api.async_turn_on()
 
         if brightness is not None:
-            # Convert brightness from 0-255 to 0-100
-            brightness_pct = int(brightness / 255 * 100)
+            brightness_pct = round(brightness * 100 / 255)
             await self.api.async_set_brightness(brightness_pct)
 
-        if rgb_color is not None:
+        if hs_color is not None:
+            h, s = hs_color
+            r, g, b = colorsys.hsv_to_rgb(h / 360, s / 100, 1.0)
+            rgb = (int(r * 255), int(g * 255), int(b * 255))
+            await self.api.async_set_rgb_color(rgb)
+        elif rgb_color is not None:
             await self.api.async_set_rgb_color(rgb_color)
 
         # Update state
@@ -148,7 +155,7 @@ class MinleonLightingLight(LightEntity):
         pass
 
 
-class MinleonColorSlot(LightEntity):
+class MinleonColorSlot(CoordinatorEntity, LightEntity):
     """Individual color slot control with RGB color picker."""
 
     def __init__(
@@ -159,6 +166,7 @@ class MinleonColorSlot(LightEntity):
         slot_name: str,
     ) -> None:
         """Initialize."""
+        super().__init__(api.coordinator)
         self.api = api
         self._config_entry = entry
         self._slot = slot
@@ -176,6 +184,8 @@ class MinleonColorSlot(LightEntity):
             "model": "Pixel Dancer",
             "sw_version": "1.0",
         }
+        # Track last non-black color so turn_on can restore it after a blackout
+        self._last_color: tuple[int, int, int] = (255, 0, 0)
 
     @property
     def unique_id(self) -> str:
@@ -183,15 +193,10 @@ class MinleonColorSlot(LightEntity):
         return self._attr_unique_id
 
     @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return True
-
-    @property
     def is_on(self) -> bool:
-        """Return True if the slot color is not black."""
+        """Return True if the slot has a non-black color (i.e. is contributing to the pattern)."""
         color = self.rgb_color
-        return color is not None and sum(color) > 0
+        return color != (0, 0, 0) if color else False
 
     @property
     def rgb_color(self) -> tuple[int, int, int] | None:
@@ -204,24 +209,25 @@ class MinleonColorSlot(LightEntity):
         return (0, 0, 0)
 
     async def async_turn_on(self, **kwargs) -> None:
-        """Set the color for this slot, or restore to white if currently blacked out."""
+        """Set the color for this slot, or restore the last color if none provided."""
         rgb_color = kwargs.get(ATTR_RGB_COLOR)
 
         if rgb_color is not None:
             LOGGER.debug("Setting color slot %s to %s", self._slot, rgb_color)
             await self.api.async_set_color(self._slot, rgb_color)
-            self.async_write_ha_state()
-        elif not self.is_on:
-            # Slot is blacked out — restore to white
-            await self.api.async_set_color(self._slot, (255, 255, 255))
-            self.async_write_ha_state()
+            self._last_color = rgb_color
+        else:
+            # No color specified — restore the last non-black color
+            LOGGER.debug("Restoring color slot %s to %s", self._slot, self._last_color)
+            await self.api.async_set_color(self._slot, self._last_color)
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
-        """Black out this slot by setting its color to black [0,0,0].
-
-        The Minleon device does not support truly turning off individual
-        color slots, so we send black instead to make the slot invisible.
-        """
+        """Black out this slot so it does not contribute to the pattern."""
         LOGGER.debug("Blacking out color slot %s", self._slot)
+        # Save the current color before blacking out so we can restore it
+        current = self.rgb_color
+        if current and current != (0, 0, 0):
+            self._last_color = current
         await self.api.async_set_color(self._slot, (0, 0, 0))
         self.async_write_ha_state()

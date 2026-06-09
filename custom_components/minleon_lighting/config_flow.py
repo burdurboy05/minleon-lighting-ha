@@ -23,37 +23,24 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
-class PlaceholderAuth:
-    """Placeholder class to make tests pass.
-
-    TODO Remove this placeholder class and replace with things from your PyPI package.
-    """
-
-    def __init__(self, host: str) -> None:
-        """Initialize."""
-        self.host = host
-
-    async def authenticate(self, username: str, password: str) -> bool:
-        """Test if we can authenticate with the host."""
-        return True
-
-
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect.
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
-    # Create API client and test connection
     api = MinleonLightingApiClient(data["host"], None, hass)
-    
-    if not await api.async_test_connection():
+    try:
+        if not await api.async_test_connection():
+            raise CannotConnect
+        info = await api.async_get_device_info()
+    finally:
         await api.async_close()
-        raise CannotConnect
-    
-    await api.async_close()
 
-    # Return info that you want to store in the config entry.
-    return {"title": f"Minleon Lights ({data["host"]})"}
+    host = data["host"]
+    return {
+        "title": f"Minleon Lights ({host})",
+        "uuid": (info or {}).get("uuid"),
+    }
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -71,12 +58,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await validate_input(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
+                # Use the controller's stable UUID to prevent adding it twice
+                if info.get("uuid"):
+                    await self.async_set_unique_id(info["uuid"])
+                    self._abort_if_unique_id_configured()
                 return self.async_create_entry(title=info["title"], data=user_input)
 
         return self.async_show_form(
@@ -86,7 +75,3 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class CannotConnect(HomeAssistantError):
     """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(HomeAssistantError):
-    """Error to indicate there is invalid auth."""

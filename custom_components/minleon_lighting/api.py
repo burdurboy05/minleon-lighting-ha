@@ -8,8 +8,12 @@ from typing import List, Tuple, Dict, Optional
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 
-from .const import LOGGER, KNOWN_EFFECTS, HOLIDAY_PRESETS, NFL_PRESETS, NATION_PRESETS, SOCCER_PRESETS, AUSTRALIAN_FOOTBALL_PRESETS, NBA_PRESETS, MLB_PRESETS, NHL_PRESETS
+from .const import DOMAIN, LOGGER, KNOWN_EFFECTS, HOLIDAY_PRESETS, NFL_PRESETS, NATION_PRESETS, SOCCER_PRESETS, AUSTRALIAN_FOOTBALL_PRESETS, NBA_PRESETS, MLB_PRESETS, NHL_PRESETS
+
+STORAGE_VERSION = 1
 
 
 class MinleonLightingApiClient:
@@ -20,8 +24,11 @@ class MinleonLightingApiClient:
         self.address = address
         self._config_entry = config_entry
         self._hass = hass
-        self._session = None
         self._base_url = f"http://{address}/api/control"
+
+        # Serialize HTTP requests to the (single-threaded) controller so
+        # commands and polls never overlap on the device.
+        self._command_lock = asyncio.Lock()
 
         # Current state
         self._is_on = False
@@ -32,90 +39,128 @@ class MinleonLightingApiClient:
         self._background_color = (0, 0, 0)
         self._overlay_effect = "Off"
 
+        # Effect parameters mirrored from the controller on each poll
+        self._trails = 0
+        self._amount = 50
+        self._spacing = 16
+
+        # Data update coordinator (assigned in async_setup_entry)
+        self.coordinator = None
+
         # Last selected preset and effect (persisted when lights are off)
         self._last_color_preset = "None"
         self._last_effect = "Off"
 
-        # Persistent state file path (will be set later)
-        self._state_file = None
-        self._hass_ready = False
+        # Async persistent storage (.storage/minleon_lighting_<entry_id>).
+        # config_entry is None during the config-flow connection test, where
+        # no persistence is needed.
+        if config_entry is not None:
+            self._store = Store(
+                hass, STORAGE_VERSION, f"{DOMAIN}_{config_entry.entry_id}"
+            )
+        else:
+            self._store = None
 
     @property
     def session(self):
-        """Get aiohttp session."""
-        if self._session is None:
-            self._session = aiohttp.ClientSession()
-        return self._session
+        """Return Home Assistant's shared aiohttp session."""
+        return async_get_clientsession(self._hass)
 
     async def async_close(self):
-        """Close the session."""
-        if self._session:
-            await self._session.close()
-            self._session = None
+        """No-op: the shared HA client session is managed by Home Assistant."""
+        return
 
-    def _ensure_state_file(self):
-        """Ensure state file path is initialized."""
-        if self._state_file is None and self._hass is not None:
-            try:
-                self._state_file = f"{self._hass.config.config_dir}/minleon_lighting_state_{self._config_entry.entry_id}.json"
-                self._load_persistent_state()
-                self._hass_ready = True
-            except Exception as ex:
-                LOGGER.warning("Failed to initialize state file: %s", ex)
+    def _apply_persistent_state(self, state: dict) -> None:
+        """Populate in-memory state from a loaded persistence dict."""
+        self._last_color_preset = state.get('last_color_preset', 'None')
+        self._last_effect = state.get('last_effect', 'Off')
+        self._is_on = state.get('is_on', False)
+        # Restore color slots so animated effects have the correct colors
+        saved_colors = state.get('colors')
+        if saved_colors and len(saved_colors) == 5:
+            self._colors = [tuple(c) for c in saved_colors]
+        saved_bg = state.get('background_color')
+        if saved_bg and len(saved_bg) == 3:
+            self._background_color = tuple(saved_bg)
+        # Restore current effect if lights were on
+        if self._is_on and self._last_effect != 'Off':
+            self._current_effect = self._last_effect
 
-    def _load_persistent_state(self):
-        """Load last preset, effect, and on/off state from persistent storage."""
+    def _read_legacy_state_file(self) -> Optional[dict]:
+        """Read the pre-1.5 JSON state file (runs in an executor thread)."""
+        legacy = (
+            f"{self._hass.config.config_dir}"
+            f"/minleon_lighting_state_{self._config_entry.entry_id}.json"
+        )
         try:
-            if self._state_file and os.path.exists(self._state_file):
-                with open(self._state_file, 'r') as f:
-                    state = json.load(f)
-                    self._last_color_preset = state.get('last_color_preset', 'None')
-                    self._last_effect = state.get('last_effect', 'Off')
-                    self._is_on = state.get('is_on', False)
-                    # Restore current effect if lights were on
-                    if self._is_on and self._last_effect != 'Off':
-                        self._current_effect = self._last_effect
-                    LOGGER.debug("Loaded persistent state: preset=%s, effect=%s, is_on=%s",
-                               self._last_color_preset, self._last_effect, self._is_on)
-        except Exception as ex:
+            if os.path.exists(legacy):
+                with open(legacy, 'r') as f:
+                    return json.load(f)
+        except Exception as ex:  # noqa: BLE001
+            LOGGER.warning("Failed to read legacy state file: %s", ex)
+        return None
+
+    async def async_load_persistent_state(self) -> None:
+        """Load persisted state from the async Store (migrating the old file once)."""
+        if self._store is None:
+            return
+        try:
+            state = await self._store.async_load()
+            if state is None:
+                # One-time migration from the legacy blocking JSON file
+                state = await self._hass.async_add_executor_job(
+                    self._read_legacy_state_file
+                )
+                if state:
+                    LOGGER.info("Migrated Minleon state from legacy JSON file to Store")
+                    self._apply_persistent_state(state)
+                    await self._store.async_save(self._persistent_data())
+                    return
+            if state:
+                self._apply_persistent_state(state)
+                LOGGER.debug(
+                    "Loaded persistent state: preset=%s, effect=%s, is_on=%s",
+                    self._last_color_preset, self._last_effect, self._is_on,
+                )
+        except Exception as ex:  # noqa: BLE001
             LOGGER.warning("Failed to load persistent state: %s", ex)
 
+    def _persistent_data(self) -> dict:
+        """Return the data to persist (callback for delayed save)."""
+        return {
+            'last_color_preset': self._last_color_preset,
+            'last_effect': self._last_effect,
+            'is_on': self._is_on,
+            'colors': [list(c) for c in self._colors],
+            'background_color': list(self._background_color),
+        }
+
     def _save_persistent_state(self):
-        """Save last preset, effect, and on/off state to persistent storage."""
-        try:
-            self._ensure_state_file()
-            if self._state_file and self._hass_ready:
-                state = {
-                    'last_color_preset': self._last_color_preset,
-                    'last_effect': self._last_effect,
-                    'is_on': self._is_on
-                }
-                with open(self._state_file, 'w') as f:
-                    json.dump(state, f)
-                LOGGER.debug("Saved persistent state: preset=%s, effect=%s, is_on=%s",
-                           self._last_color_preset, self._last_effect, self._is_on)
-        except Exception as ex:
-            LOGGER.warning("Failed to save persistent state: %s", ex)
+        """Schedule a debounced async save of the current state (non-blocking)."""
+        if self._store is not None:
+            # async_delay_save is loop-safe and coalesces rapid updates
+            self._store.async_delay_save(self._persistent_data, 1.0)
 
     async def _send_command(self, payload: dict) -> bool:
         """Send command to Minleon controller."""
         try:
             LOGGER.debug("Sending command to %s: %s", self._base_url, payload)
 
-            async with self.session.post(
-                self._base_url,
-                data=json.dumps(payload),
-                headers={"Content-Type": "text/plain;charset=UTF-8"},
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                if response.status == 200:
-                    result = await response.text()
-                    LOGGER.debug("Command successful: %s", result)
-                    # Accept any 200 response, including "200 OK" HTML responses
-                    return True
-                else:
-                    LOGGER.error("Command failed with status %s", response.status)
-                    return False
+            async with self._command_lock:
+                async with self.session.post(
+                    self._base_url,
+                    data=json.dumps(payload),
+                    headers={"Content-Type": "text/plain;charset=UTF-8"},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        result = await response.text()
+                        LOGGER.debug("Command successful: %s", result)
+                        # Accept any 200 response, including "200 OK" HTML responses
+                        return True
+                    else:
+                        LOGGER.error("Command failed with status %s", response.status)
+                        return False
 
         except asyncio.TimeoutError:
             LOGGER.error("Timeout sending command to Minleon controller")
@@ -125,18 +170,117 @@ class MinleonLightingApiClient:
             return False
 
     async def async_test_connection(self) -> bool:
-        """Test connection to the controller without changing light state."""
+        """Verify the host is a reachable Minleon controller.
+
+        Reads /api/status and confirms it returns a 200 with the expected
+        JSON shape, so pointing at the wrong device (which may answer with a
+        404/other 2xx-4xx) is rejected.
+        """
         try:
-            # Use a GET request to check connectivity without altering light state
             async with self.session.get(
-                f"http://{self.address}/",
+                f"http://{self.address}/api/status",
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
-                LOGGER.debug("Connection test status: %s", response.status)
-                return response.status < 500
+                if response.status != 200:
+                    LOGGER.error("Connection test got HTTP %s", response.status)
+                    return False
+                data = json.loads(await response.text())
+                LOGGER.debug("Connection test status payload: %s", data)
+                return "status" in data
         except Exception as ex:
             LOGGER.error("Connection test failed: %s", ex)
             return False
+
+    async def async_get_device_info(self) -> Optional[dict]:
+        """Return the controller's /api/status payload (mac, uuid, firmware)."""
+        try:
+            async with self._command_lock:
+                async with self.session.get(
+                    f"http://{self.address}/api/status",
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    if response.status != 200:
+                        return None
+                    data = json.loads(await response.text())
+            return data.get("status", data)
+        except Exception as ex:  # noqa: BLE001
+            LOGGER.warning("Failed to read device info: %s", ex)
+            return None
+
+    @staticmethod
+    def _parse_color(value) -> Tuple[int, int, int]:
+        """Parse a controller color value (e.g. '#c69740' or 'none') to RGB."""
+        if not value or value == "none":
+            return (0, 0, 0)
+        hex_color = value.lstrip("#")
+        try:
+            return (
+                int(hex_color[0:2], 16),
+                int(hex_color[2:4], 16),
+                int(hex_color[4:6], 16),
+            )
+        except (ValueError, IndexError):
+            return (0, 0, 0)
+
+    async def async_fetch_state(self) -> dict:
+        """Read the live state from the controller (GET /api/control).
+
+        Updates the in-memory state so all entities reflect the device,
+        including colors set from the Pixel Dancer app. Returns the parsed
+        state dict for the coordinator.
+        """
+        async with self._command_lock:
+            async with self.session.get(
+                self._base_url,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                response.raise_for_status()
+                payload = await response.text()
+
+        data = json.loads(payload)
+        engines = data.get("e", [])
+        # The integration always controls engine fxn=1
+        engine = next(
+            (e for e in engines if e.get("fxn") == 1),
+            engines[0] if engines else {},
+        )
+
+        # Parse the six color slots (1-5 + background); pad if short
+        parsed_colors = [self._parse_color(c.get("c")) for c in engine.get("colors", [])]
+        while len(parsed_colors) < 6:
+            parsed_colors.append((0, 0, 0))
+
+        effect = engine.get("fx", "Off")
+        self._current_effect = effect
+        self._is_on = effect != "Off"
+        if effect != "Off":
+            self._last_effect = effect
+        if "int" in engine:
+            self._brightness = int(engine["int"])
+        if "spd" in engine:
+            self._speed = int(engine["spd"])
+        self._colors = parsed_colors[:5]
+        self._background_color = parsed_colors[5]
+        self._trails = int(engine.get("trails", self._trails))
+        self._amount = int(engine.get("amount", self._amount))
+        self._spacing = int(engine.get("spacing", self._spacing))
+
+        LOGGER.debug(
+            "Fetched controller state: effect=%s is_on=%s int=%s spd=%s colors=%s bg=%s",
+            self._current_effect, self._is_on, self._brightness, self._speed,
+            self._colors, self._background_color,
+        )
+        return {
+            "effect": self._current_effect,
+            "is_on": self._is_on,
+            "brightness": self._brightness,
+            "speed": self._speed,
+            "trails": self._trails,
+            "amount": self._amount,
+            "spacing": self._spacing,
+            "colors": self._colors,
+            "background_color": self._background_color,
+        }
 
     async def async_turn_on(self) -> bool:
         """Turn on the lights with current effect."""
@@ -153,8 +297,8 @@ class MinleonLightingApiClient:
             self._is_on = True
             self._save_persistent_state()  # Save on/off state
             # Apply current brightness and speed
-            await self._send_command({"fxn": 1, "int": self._brightness})
-            await self._send_command({"fxn": 1, "spd": self._speed})
+            await self._send_command({"fxn": 1, "int": str(self._brightness)})
+            await self._send_command({"fxn": 1, "spd": str(self._speed)})
         return result
 
     async def async_turn_off(self) -> bool:
@@ -172,6 +316,17 @@ class MinleonLightingApiClient:
             LOGGER.warning("Unknown effect: %s", effect)
             return False
 
+        # For animated effects, always sync color slots to the controller so animation is visible
+        if effect not in ["Off", "Fixed Colors"]:
+            if all(c == (0, 0, 0) for c in self._colors):
+                LOGGER.info("All color slots black, restoring warm white before animated effect: %s", effect)
+                for i in range(1, 6):
+                    await self.async_set_color(i, (198, 151, 64))
+            else:
+                LOGGER.debug("Syncing color slots to controller for animated effect: %s", effect)
+                for i, color in enumerate(self._colors, 1):
+                    await self.async_set_color(i, color)
+
         result = await self._send_command({"fxn": 1, "fx": effect})
         if result:
             self._current_effect = effect
@@ -180,6 +335,9 @@ class MinleonLightingApiClient:
             if effect != "Off":
                 self._last_effect = effect
                 self._save_persistent_state()  # Save to file
+            # Always send speed after setting effect so animation runs at visible speed
+            if effect != "Off":
+                await self._send_command({"fxn": 1, "spd": str(self._speed)})
         return result
 
     async def async_set_brightness(self, brightness: int) -> bool:
@@ -210,10 +368,13 @@ class MinleonLightingApiClient:
             LOGGER.error("Color slot must be between 1-6, got %s", slot)
             return False
 
-        hex_color = "#{:02x}{:02x}{:02x}".format(*color).upper()
+        if color == (0, 0, 0):
+            color_str = "none"
+        else:
+            color_str = "#{:02x}{:02x}{:02x}".format(*color).upper()
         result = await self._send_command({
             "fxn": 1,
-            "color": {"i": slot, "c": hex_color}
+            "color": {"i": slot, "c": color_str}
         })
 
         if result:
@@ -273,12 +434,15 @@ class MinleonLightingApiClient:
                 LOGGER.info("Clearing unused color slot %d", i)
                 await self.async_set_color(i, (0, 0, 0))
 
-        # Set background color (slot 6) if specified in the preset
+        # Set background color (slot 6) - use preset value or reset to black so effects are visible
         if "background" in preset:
             hex_bg = preset["background"].lstrip("#")
             bg_rgb = tuple(int(hex_bg[j:j+2], 16) for j in (0, 2, 4))
             LOGGER.info("Setting background color to %s (RGB: %s)", hex_bg, bg_rgb)
             await self.async_set_color(6, bg_rgb)
+        else:
+            LOGGER.info("No background specified in preset - resetting to black for animation visibility")
+            await self.async_set_color(6, (0, 0, 0))
 
         # Apply effect if specified in the preset
         if "effect" in preset:
@@ -327,6 +491,21 @@ class MinleonLightingApiClient:
         return self._speed
 
     @property
+    def trails(self) -> int:
+        """Return current trails value."""
+        return self._trails
+
+    @property
+    def amount(self) -> int:
+        """Return current amount value."""
+        return self._amount
+
+    @property
+    def spacing(self) -> int:
+        """Return current spacing value."""
+        return self._spacing
+
+    @property
     def rgb_color(self) -> Tuple[int, int, int]:
         """Return current primary color."""
         return self._colors[0]
@@ -359,24 +538,3 @@ class MinleonLightingApiClient:
         all_presets.extend(list(MLB_PRESETS.keys()))
         all_presets.extend(list(NHL_PRESETS.keys()))
         return all_presets
-
-
-class MinleonLightingZoneData:
-    """Simple class to store the state of the Minleon lights"""
-
-    def __init__(
-        self,
-        is_on: bool = False,
-        effect: str = "Off",
-        brightness: int = 75,
-        speed: int = 50,
-        color: tuple[int, int, int] = (255, 0, 0),
-    ):
-        self.is_on = is_on
-        self.effect = effect
-        self.brightness = brightness
-        self.speed = speed
-        self.color = color
-
-    def __repr__(self) -> str:
-        return str(vars(self))
